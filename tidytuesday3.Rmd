@@ -1,0 +1,111 @@
+---
+title: "Women's World Rugby Sevens Series"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: sandstone
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(flexdashboard)
+library(tidyverse)
+library(vtable)
+library(dplyr)
+library(lubridate)
+library(ggiraph)
+library(plotly)
+library(dygraphs)
+library(xts)
+library(shiny)
+
+sevens <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-05-24/sevens.csv')
+
+vtable(sevens)
+
+
+sevens <- sevens %>%
+  group_by(year(date), winner) %>%
+  mutate(winScore = pmax(score_1, score_2)) 
+
+sevens$winScore <- as.numeric(as.character(sevens$winScore))
+
+sevens
+
+sevens <- sevens %>%
+  mutate(year = year(date))
+
+sevens <- sevens %>%
+  group_by(year, winner) %>%
+  summarize(points = sum(winScore))
+
+sevens
+
+winnersNew <- sevens %>%
+  filter(year == '2022') %>%
+  arrange(-points) %>%
+  slice(0:5)
+
+winners <- sevens %>%
+  filter(winner == 'Australia'|
+         winner == 'Canada' |
+         winner == 'France' |
+         winner == 'Ireland' |
+         winner == "New Zealand") %>%
+  arrange(-points) %>%
+  slice(0:5)
+
+winners
+
+winnersNew
+
+```
+
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+```{r, echo=FALSE}
+selectInput('rugby_team', 'Rugby World Sevens Series Team:',
+            unique(winnersNew$winner, selected = 'Australia'))
+
+```
+
+
+##### Rugby
+The winners for the Women's Rugby World Sevens Series are decided by the total accumulated points made throughout each yearly season. Here is some information about this past year's top teams. 
+
+
+
+Column {data-width=50}
+-----------------------------------------------------------------------
+
+### 2022 World Rugby Series Results
+
+```{r, echo=FALSE}
+winnersNew %>%
+  ggplot(aes(x= winner, y= points, fill= winner)) +
+  geom_col_interactive() +
+  geom_text(aes(label = points), vjust= 0) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x= "Team", y= "Total Points", title= "Top Five Finishing Teams - Women's World Rugby Series")
+
+```
+
+### Top Five Teams' Points By Year
+
+```{r, echo=FALSE}
+winners$year <- as.double(as.character(winners$year))
+
+renderDygraph({
+  tourn_team <- winners %>%
+    filter(winner == input$rugby_team) 
+  dygraph(tourn_team, ylab = 'Total Points', xlab = 'Year') %>% 
+    dyRangeSelector()
+}) 
+
+
+```
+
